@@ -1,0 +1,23 @@
+{
+  "archiveName": "Archivo.zip",
+  "size": 82755600,
+  "sha256": "5db02a5c1f282ce0c82e6d0d74e5305ec69c380d7cde2485a64cd9e95c052968",
+  "parts": [
+    {
+      "path": "Archivo.zip.001",
+      "size": 20971520
+    },
+    {
+      "path": "Archivo.zip.002",
+      "size": 20971520
+    },
+    {
+      "path": "Archivo.zip.003",
+      "size": 20971520
+    },
+    {
+      "path": "Archivo.zip.004",
+      "size": 19841040
+    }
+  ]
+}

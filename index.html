@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Abre tus radiografías DICOM desde un archivo o ZIP, con zoom, ajustes de imagen y mediciones. Tus imágenes se procesan en este dispositivo.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="theme-color" content="#101617">
+  <title>VisorX · Visor de radiografías</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="dicom-parser.min.js"></script>
+  <script defer src="fflate.min.js"></script>
+  <script defer src="dicom-engine.js"></script>
+  <script defer src="repository-study.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+<input id="file-input" type="file" accept=".zip,.dcm,.dicom,application/dicom" multiple hidden>
+<input id="folder-input" type="file" webkitdirectory multiple hidden>
+<header class="topbar">
+  <a class="brand" href="./" aria-label="VisorX, inicio"><span class="brand-mark">✳</span><span>VisorX</span></a>
+  <div class="header-divider"></div><span class="app-name">Visor de radiografías</span>
+  <span class="local-pill"><span class="live-dot"></span> Procesada en tu dispositivo</span>
+  <button class="button subtle" id="help-button"><span data-icon="help"></span><span class="optional">Ayuda</span></button>
+  <button class="button primary" id="open-button"><span data-icon="folder"></span>Abrir estudio</button>
+</header>
+<main class="workspace">
+  <aside class="sidebar">
+    <div class="panel-heading"><span>ESTUDIO</span><span id="image-count" class="count">0</span></div>
+    <div id="study-empty" class="study-empty"><span data-icon="layers"></span><p>Tu estudio aparecerá aquí</p><small>Abre un archivo DICOM o el ZIP de tu pendrive.</small></div>
+    <div id="image-list" class="image-list" aria-label="Imágenes del estudio"></div>
+    <div class="study-info" id="study-info" hidden><div class="eyebrow">IMAGEN SELECCIONADA</div><dl><dt>Resolución</dt><dd id="meta-size">—</dd><dt>Profundidad</dt><dd id="meta-bits">—</dd><dt>Modalidad</dt><dd id="meta-modality">—</dd><dt>Escala</dt><dd id="meta-spacing">—</dd></dl></div>
+    <div class="sidebar-bottom"><span data-icon="shield"></span><p><strong>Archivo guardado públicamente</strong><br>La copia de GitHub es pública. El visor la descarga y procesa en este dispositivo.</p></div>
+    <button id="close-study" class="button subtle close-study" hidden><span data-icon="close"></span>Cerrar estudio</button>
+  </aside>
+  <section class="viewer-column" aria-label="Visor de imágenes">
+    <nav class="toolbar" aria-label="Herramientas de imagen">
+      <div class="tool-group modes">
+        <button class="tool selected" data-mode="pan" title="Mover (M)" aria-label="Mover" aria-pressed="true"><span data-icon="hand"></span><span>Mover</span></button>
+        <button class="tool" data-mode="window" title="Brillo y contraste (B)" aria-label="Brillo y contraste" aria-pressed="false"><span data-icon="sun"></span><span>Ajustar</span></button>
+        <button class="tool" data-mode="measure" title="Medir distancia (D)" aria-label="Medir distancia" aria-pressed="false"><span data-icon="ruler"></span><span>Medir</span></button>
+      </div>
+      <span class="tool-divider"></span>
+      <div class="tool-group">
+        <button class="tool icon-only" id="rotate-button" title="Girar 90° (R)" aria-label="Girar 90 grados"><span data-icon="rotate"></span></button>
+        <button class="tool icon-only" id="flip-button" title="Reflejar horizontalmente" aria-label="Reflejar horizontalmente" aria-pressed="false"><span data-icon="flip"></span></button>
+        <button class="tool icon-only" id="invert-button" title="Invertir tonos (I)" aria-label="Invertir tonos" aria-pressed="false"><span data-icon="contrast"></span></button>
+        <button class="tool icon-only" id="reset-button" title="Restablecer imagen (0)" aria-label="Restablecer imagen"><span data-icon="reset"></span></button>
+      </div>
+      <div class="toolbar-end"><button class="tool" id="export-button" title="Guardar la imagen ajustada, sin las mediciones"><span data-icon="download"></span><span>Exportar PNG</span></button></div>
+    </nav>
+    <div class="stage" id="stage">
+      <canvas id="viewer" aria-label="Radiografía; usa la rueda para ampliar y arrastra para mover" tabindex="0" hidden></canvas>
+      <div class="stage-top" id="stage-top" hidden><div><span class="eyebrow" id="stage-image-label">RADIOGRAFÍA</span><p id="stage-image-size"></p></div><span class="original-badge" id="transform-badge">ORIGINAL</span></div>
+      <div class="welcome" id="welcome">
+        <div class="welcome-symbol"><span data-icon="scan"></span><span class="symbol-dot"></span></div>
+        <div class="eyebrow">TU ESTUDIO, A MANO</div>
+        <h1>Una mirada más clara.</h1>
+        <p>Explora tu radiografía directamente en el navegador.<br>Con todos sus detalles, a tu ritmo.</p>
+        <button class="button primary large" id="welcome-open"><span data-icon="folder"></span>Abrir radiografía</button>
+        <div class="drop-hint">o arrastra aquí tu archivo <strong>DICOM o ZIP</strong></div>
+        <button class="text-button" id="open-folder">Seleccionar una carpeta completa <span>↗</span></button>
+        <div class="welcome-features"><span><span data-icon="zoom"></span>Ampliación precisa</span><span><span data-icon="sun"></span>Ajuste de imagen</span><span><span data-icon="ruler"></span>Mediciones</span></div>
+      </div>
+      <div id="drag-overlay" class="drag-overlay" hidden><span data-icon="folder"></span><h2>Suelta tu estudio aquí</h2><p>Archivos DICOM y ZIP</p></div>
+      <div id="loading" class="loading" hidden><span class="spinner"></span><strong id="loading-text">Leyendo estudio…</strong><small>Procesando en tu dispositivo</small></div>
+      <div class="stage-bottom" id="stage-bottom" hidden><span id="interaction-hint">Arrastra para mover · Rueda para ampliar</span><span id="window-badge"></span></div>
+      <div class="zoom-control" id="zoom-control" hidden><button id="zoom-out" aria-label="Reducir zoom">−</button><button id="fit-button" title="Encajar en pantalla" aria-label="Encajar en pantalla"><span id="zoom-value">100 %</span></button><button id="zoom-in" aria-label="Aumentar zoom">+</button><span></span><button id="full-button" title="Pantalla completa" aria-label="Pantalla completa"><span data-icon="expand"></span></button></div>
+    </div>
+    <div class="viewer-footer"><span><span class="live-dot"></span><span id="status-text">Listo para abrir un estudio</span></span><span>Archivo público · Sin validación para diagnóstico</span></div>
+  </section>
+  <aside class="adjustments" aria-label="Ajustes de imagen">
+    <div class="panel-heading">AJUSTES DE IMAGEN<span data-icon="sliders"></span></div>
+    <fieldset id="adjustment-fields" disabled>
+      <div class="control"><label for="center-range">Brillo <output id="center-value">—</output></label><input id="center-range" type="range" min="0" max="4096" value="2048"><div class="range-labels"><span>Más oscuro</span><span>Más claro</span></div></div>
+      <div class="control"><label for="width-range">Contraste <output id="width-value">—</output></label><input id="width-range" type="range" min="1" max="8192" value="4096"><div class="range-labels"><span>Suave</span><span>Intenso</span></div></div>
+      <div class="presets"><button class="button secondary" id="auto-button"><span data-icon="spark"></span>Ajuste automático</button><button class="text-button" id="original-button">Volver a los tonos originales</button></div>
+      <div class="section-line"></div>
+      <div class="mini-heading">ENCUADRE</div><div class="framing-buttons"><button class="button secondary" id="fit-side">Encajar</button><button class="button secondary" id="actual-size">1:1</button></div>
+      <div id="frames-control" class="control" hidden><label for="frame-range">Fotograma <output id="frame-value">1</output></label><input id="frame-range" type="range" min="1" max="1" value="1"></div>
+      <div class="section-line"></div>
+      <div class="mini-heading">MEDICIONES <button id="clear-measures" class="text-button" title="Borrar mediciones">Borrar</button></div>
+      <div id="measurement-list" class="measurement-list"><p class="muted">Selecciona «Medir» y arrastra entre dos puntos de la imagen.</p></div>
+      <p id="measurement-note" class="small-note">Las distancias usan la escala del archivo. Son orientativas.</p>
+    </fieldset>
+    <div class="keyboard-tip"><span class="eyebrow">UN PEQUEÑO ATAJO</span><p><kbd>0</kbd> restablece la vista.<br><kbd>+</kbd> y <kbd>−</kbd> ajustan el zoom.</p></div>
+  </aside>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<dialog id="help-dialog"><div class="dialog-top"><span class="eyebrow">GUÍA RÁPIDA</span><button class="tool icon-only" id="help-close" aria-label="Cerrar ayuda"><span data-icon="close"></span></button></div><h2>Tu radiografía, sin instalaciones.</h2><p>Selecciona <strong>Abrir estudio</strong> y elige el ZIP del pendrive, un archivo DICOM o una carpeta completa. No necesitas ejecutar el programa de Windows.</p><div class="help-grid"><p><kbd>M</kbd><strong>Mover</strong>Arrastra la imagen; usa la rueda o dos dedos para ampliar.</p><p><kbd>B</kbd><strong>Ajustar</strong>Arrastra en horizontal para el contraste y en vertical para el brillo.</p><p><kbd>D</kbd><strong>Medir</strong>Arrastra entre dos puntos. La escala procede del DICOM; sin escala se muestran píxeles.</p><p><kbd>I</kbd><strong>Invertir</strong>Invierte los tonos. <kbd>R</kbd> gira la imagen y <kbd>0</kbd> restablece la vista.</p></div><p class="small-note">Compatible con DICOM monocromo sin compresión de 8 y 16 bits. Los formatos no compatibles muestran un aviso. El PNG exporta los tonos y la orientación actuales, sin las mediciones. No elimina texto que ya forme parte de la imagen.</p><div class="privacy-note"><span data-icon="shield"></span><p>Los archivos se procesan en memoria y se liberan al cerrar el estudio o la página. Las imágenes y sus datos no se guardan en esta web.</p></div></dialog>
+</body>
+</html>
