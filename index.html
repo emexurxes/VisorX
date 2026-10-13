@@ -11,12 +11,12 @@
   <meta name="theme-color" content="#101617">
   <title>VisorX · Visor de radiografías</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=20261013b">
-  <script defer src="dicom-parser.min.js?v=20261013b"></script>
-  <script defer src="fflate.min.js?v=20261013b"></script>
-  <script defer src="dicom-engine.js?v=20261013b"></script>
-  <script defer src="repository-study.js?v=20261013b"></script>
-  <script defer src="app.js?v=20261013b"></script>
+  <link rel="stylesheet" href="styles.css?v=20261013c">
+  <script defer src="dicom-parser.min.js?v=20261013c"></script>
+  <script defer src="fflate.min.js?v=20261013c"></script>
+  <script defer src="dicom-engine.js?v=20261013c"></script>
+  <script defer src="repository-study.js?v=20261013c"></script>
+  <script defer src="app.js?v=20261013c"></script>
 </head>
 <body>
 <header class="topbar">
@@ -39,6 +39,7 @@
         <button class="tool selected" data-mode="pan" title="Mover (M)" aria-label="Mover" aria-pressed="true"><span data-icon="hand"></span><span>Mover</span></button>
         <button class="tool" data-mode="window" title="Brillo y contraste (B)" aria-label="Brillo y contraste" aria-pressed="false"><span data-icon="sun"></span><span>Ajustar</span></button>
         <button class="tool" data-mode="measure" title="Medir distancia (D)" aria-label="Medir distancia" aria-pressed="false"><span data-icon="ruler"></span><span>Medir</span></button>
+        <button class="tool" data-mode="marker" title="Anotar con rotulador (A)" aria-label="Rotulador" aria-pressed="false"><span data-icon="pen"></span><span>Rotulador</span></button>
       </div>
       <span class="tool-divider"></span>
       <div class="tool-group">
@@ -47,7 +48,7 @@
         <button class="tool icon-only" id="invert-button" title="Invertir tonos (I)" aria-label="Invertir tonos" aria-pressed="false"><span data-icon="contrast"></span></button>
         <button class="tool icon-only" id="reset-button" title="Restablecer imagen (0)" aria-label="Restablecer imagen"><span data-icon="reset"></span></button>
       </div>
-      <div class="toolbar-end"><button class="tool" id="export-button" title="Guardar la imagen ajustada, sin las mediciones"><span data-icon="download"></span><span>Exportar PNG</span></button></div>
+      <div class="toolbar-end"><button class="tool" id="export-button" title="Guardar la imagen ajustada con las anotaciones"><span data-icon="download"></span><span>Exportar PNG</span></button></div>
     </nav>
     <div class="stage" id="stage">
       <canvas id="viewer" aria-label="Radiografía; usa la rueda para ampliar y arrastra para mover" tabindex="0" hidden></canvas>
@@ -72,11 +73,21 @@
       <div class="mini-heading">MEDICIONES <button id="clear-measures" class="text-button" title="Borrar mediciones">Borrar</button></div>
       <div id="measurement-list" class="measurement-list"><p class="muted">Selecciona «Medir» y arrastra entre dos puntos de la imagen.</p></div>
       <p id="measurement-note" class="small-note">Las distancias usan la escala del archivo. Son orientativas.</p>
+      <div class="section-line"></div>
+      <div class="mini-heading">ANOTACIONES</div>
+      <div class="annotation-colors" role="group" aria-label="Color del rotulador">
+        <button class="annotation-color selected" data-color="#ff5d68" style="--swatch:#ff5d68" aria-label="Rotulador rojo" aria-pressed="true"></button>
+        <button class="annotation-color" data-color="#ffd84d" style="--swatch:#ffd84d" aria-label="Rotulador amarillo" aria-pressed="false"></button>
+        <button class="annotation-color" data-color="#4dd8ff" style="--swatch:#4dd8ff" aria-label="Rotulador azul" aria-pressed="false"></button>
+        <button class="annotation-color" data-color="#ffffff" style="--swatch:#ffffff" aria-label="Rotulador blanco" aria-pressed="false"></button>
+      </div>
+      <div class="control annotation-width"><label for="marker-width">Grosor <output id="marker-width-value">5 px</output></label><input id="marker-width" type="range" min="2" max="14" value="5"></div>
+      <div class="annotation-actions"><button class="button secondary" id="undo-annotation">Deshacer</button><button class="button secondary" id="clear-annotations">Borrar</button></div>
     </fieldset>
     <div class="keyboard-tip"><span class="eyebrow">UN PEQUEÑO ATAJO</span><p><kbd>0</kbd> restablece la vista.<br><kbd>+</kbd> y <kbd>−</kbd> ajustan el zoom.</p></div>
   </aside>
 </main>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
-<dialog id="help-dialog"><div class="dialog-top"><span class="eyebrow">GUÍA RÁPIDA</span><button class="tool icon-only" id="help-close" aria-label="Cerrar ayuda"><span data-icon="close"></span></button></div><h2>Controles del visor</h2><p>El estudio incluido se carga automáticamente al abrir la página y se procesa en este dispositivo.</p><div class="help-grid"><p><kbd>M</kbd><strong>Mover</strong>Arrastra la imagen; usa la rueda o dos dedos para ampliar.</p><p><kbd>B</kbd><strong>Ajustar</strong>Arrastra en horizontal para el contraste y en vertical para el brillo.</p><p><kbd>D</kbd><strong>Medir</strong>Arrastra entre dos puntos. La escala procede del DICOM; sin escala se muestran píxeles.</p><p><kbd>I</kbd><strong>Invertir</strong>Invierte los tonos. <kbd>R</kbd> gira la imagen y <kbd>0</kbd> restablece la vista.</p></div><p class="small-note">Compatible con DICOM monocromo sin compresión de 8 y 16 bits. Los formatos no compatibles muestran un aviso. El PNG exporta los tonos y la orientación actuales, sin las mediciones. No elimina texto que ya forme parte de la imagen.</p><div class="privacy-note"><span data-icon="shield"></span><p>Las imágenes y sus datos se procesan en memoria en este dispositivo.</p></div></dialog>
+<dialog id="help-dialog"><div class="dialog-top"><span class="eyebrow">GUÍA RÁPIDA</span><button class="tool icon-only" id="help-close" aria-label="Cerrar ayuda"><span data-icon="close"></span></button></div><h2>Controles del visor</h2><p>El estudio incluido se carga automáticamente al abrir la página y se procesa en este dispositivo.</p><div class="help-grid"><p><kbd>M</kbd><strong>Mover</strong>Arrastra la imagen; usa la rueda o dos dedos para ampliar.</p><p><kbd>B</kbd><strong>Ajustar</strong>Arrastra en horizontal para el contraste y en vertical para el brillo.</p><p><kbd>D</kbd><strong>Medir</strong>Arrastra entre dos puntos. La escala procede del DICOM; sin escala se muestran píxeles.</p><p><kbd>A</kbd><strong>Rotulador</strong>Arrastra sobre la radiografía para señalar zonas. Elige color y grosor; deshaz o borra las marcas.</p><p><kbd>I</kbd><strong>Invertir</strong>Invierte los tonos. <kbd>R</kbd> gira la imagen y <kbd>0</kbd> restablece la vista.</p></div><p class="small-note">Compatible con DICOM monocromo sin compresión de 8 y 16 bits. El PNG exporta la imagen con los tonos, la orientación y las anotaciones actuales; no incluye mediciones. No elimina texto que ya forme parte de la imagen.</p><div class="privacy-note"><span data-icon="shield"></span><p>Las imágenes y sus datos se procesan en memoria en este dispositivo. Exporta un PNG para conservar las anotaciones.</p></div></dialog>
 </body>
 </html>
