@@ -1,6 +1,7 @@
 /* Luma: local-only image workspace. No analytics, uploads or persistent study storage. */
 'use strict';
 const $ = (id) => document.getElementById(id);
+['open-button','close-study','file-input','folder-input','drag-overlay'].forEach(id => $(id)?.remove());
 const icons = {
   folder:'<path d="M3 7V5a1 1 0 0 1 1-1h5l2 3h9a1 1 0 0 1 1 1v2"/><path d="M3 9h18l-3 10H2L3 9Z"/>',
   help:'<circle cx="12" cy="12" r="9"/><path d="M9.4 8.5a2.7 2.7 0 0 1 5.2.9c0 2-2.6 2.1-2.6 4.1M12 17h.01"/>',
@@ -68,14 +69,16 @@ async function importFiles(fileList) {
       const name = file.name;
       if (name === 'DICOMDIR' || name.startsWith('.')) continue;
       if (files.length > 1 && !dicomCandidate(file.webkitRelativePath || name) && !name.toLowerCase().endsWith('.zip') && name.includes('.')) continue;
-      if (file.size > 536870912) {
+      const fileSize = file.bytes?.byteLength ?? file.size;
+      if (fileSize > 536870912) {
         errors.push('El archivo del estudio supera el límite de 512 MB.');
         continue;
       }
       let candidates;
       try {
         $('loading-text').textContent = 'Buscando imágenes DICOM…';
-        const bytes = new Uint8Array(await file.arrayBuffer());
+        const bytes = file.bytes instanceof Uint8Array ? file.bytes : new Uint8Array(await file.arrayBuffer());
+        file.bytes = null;
         candidates = bytes[0] === 80 && bytes[1] === 75 ? await unpack(bytes) : [{ name, bytes }];
       } catch (error) {
         errors.push(error.message || 'No se pudo leer uno de los archivos.');
@@ -131,8 +134,8 @@ window.addEventListener('keydown',ev=>{if($('help-dialog').open||/INPUT|TEXTAREA
 new ResizeObserver(resize).observe(stage);setLoaded(false);
 if(location.protocol!=='file:'&&typeof loadRepositoryStudy==='function'){
   setBusy(true,'Conectando con el estudio público…');
-  loadRepositoryStudy().then(file=>{
-    if(file){setBusy(false);importFiles([file]);return;}
+  loadRepositoryStudy().then(study=>{
+    if(study){setBusy(false);importFiles([study]);return;}
     setBusy(false);
     $('empty-state').querySelector('strong').textContent='Estudio no disponible';
     $('empty-state').querySelector('small').textContent='Recarga la página para volver a intentarlo.';
