@@ -28,7 +28,7 @@
 <main class="workspace">
   <aside class="sidebar">
     <div class="panel-heading"><span>ESTUDIO</span><span id="image-count" class="count">0</span></div>
-    <div id="study-empty" class="study-empty"><span data-icon="layers"></span><p>Tu estudio aparecerá aquí</p><small>Abre un archivo DICOM o el ZIP de tu pendrive.</small></div>
+    <div id="study-empty" class="study-empty"><span data-icon="layers"></span><p>Preparando el estudio</p><small>La radiografía aparecerá aquí cuando termine la carga.</small></div>
     <div id="image-list" class="image-list" aria-label="Imágenes del estudio"></div>
     <div class="study-info" id="study-info" hidden><div class="eyebrow">IMAGEN SELECCIONADA</div><dl><dt>Resolución</dt><dd id="meta-size">—</dd><dt>Profundidad</dt><dd id="meta-bits">—</dd><dt>Modalidad</dt><dd id="meta-modality">—</dd><dt>Escala</dt><dd id="meta-spacing">—</dd></dl></div>
     <div class="sidebar-bottom"><span data-icon="shield"></span><p><strong>Archivo guardado públicamente</strong><br>La copia de GitHub es pública. El visor la descarga y procesa en este dispositivo.</p></div>
@@ -53,18 +53,9 @@
     <div class="stage" id="stage">
       <canvas id="viewer" aria-label="Radiografía; usa la rueda para ampliar y arrastra para mover" tabindex="0" hidden></canvas>
       <div class="stage-top" id="stage-top" hidden><div><span class="eyebrow" id="stage-image-label">RADIOGRAFÍA</span><p id="stage-image-size"></p></div><span class="original-badge" id="transform-badge">ORIGINAL</span></div>
-      <div class="welcome" id="welcome">
-        <div class="welcome-symbol"><span data-icon="scan"></span><span class="symbol-dot"></span></div>
-        <div class="eyebrow">TU ESTUDIO, A MANO</div>
-        <h1>Una mirada más clara.</h1>
-        <p>Explora tu radiografía directamente en el navegador.<br>Con todos sus detalles, a tu ritmo.</p>
-        <button class="button primary large" id="welcome-open"><span data-icon="folder"></span>Abrir radiografía</button>
-        <div class="drop-hint">o arrastra aquí tu archivo <strong>DICOM o ZIP</strong></div>
-        <button class="text-button" id="open-folder">Seleccionar una carpeta completa <span>↗</span></button>
-        <div class="welcome-features"><span><span data-icon="zoom"></span>Ampliación precisa</span><span><span data-icon="sun"></span>Ajuste de imagen</span><span><span data-icon="ruler"></span>Mediciones</span></div>
-      </div>
+      <div class="empty-state" id="empty-state"><span data-icon="scan"></span><strong>Sin estudio abierto</strong><small>Pulsa «Abrir estudio» para cargar otro archivo.</small></div>
       <div id="drag-overlay" class="drag-overlay" hidden><span data-icon="folder"></span><h2>Suelta tu estudio aquí</h2><p>Archivos DICOM y ZIP</p></div>
-      <div id="loading" class="loading" hidden><span class="spinner"></span><strong id="loading-text">Leyendo estudio…</strong><small>Procesando en tu dispositivo</small></div>
+      <div id="loading" class="loading" role="status" aria-live="polite" aria-atomic="true"><span class="spinner"></span><strong id="loading-text">Conectando con el estudio…</strong><small>Descargando y preparando la radiografía en este dispositivo.</small></div>
       <div class="stage-bottom" id="stage-bottom" hidden><span id="interaction-hint">Arrastra para mover · Rueda para ampliar</span><span id="window-badge"></span></div>
       <div class="zoom-control" id="zoom-control" hidden><button id="zoom-out" aria-label="Reducir zoom">−</button><button id="fit-button" title="Encajar en pantalla" aria-label="Encajar en pantalla"><span id="zoom-value">100 %</span></button><button id="zoom-in" aria-label="Aumentar zoom">+</button><span></span><button id="full-button" title="Pantalla completa" aria-label="Pantalla completa"><span data-icon="expand"></span></button></div>
     </div>
