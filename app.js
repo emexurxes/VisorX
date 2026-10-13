@@ -25,14 +25,14 @@ document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = `<svg vi
 const canvas = $('viewer'), ctx = canvas.getContext('2d'), stage = $('stage');
 const sourceCanvas = document.createElement('canvas'), sourceCtx = sourceCanvas.getContext('2d');
 const state = {items:[], index:-1, mode:'pan', zoom:1, x:0,y:0, angle:0, flip:false, invert:false, center:0,width:1,frame:0,loading:false,drag:null,measure:null,pointers:new Map(),pinch:null};
-let viewW=0, viewH=0, dpr=1, rasterPending=false, toastTimer, dragDepth=0;
+let viewW=0, viewH=0, dpr=1, rasterPending=false, toastTimer;
 const active = () => state.items[state.index];
 const image = () => active()?.image;
 const aspect = () => image()?.spacing ? image().spacing[0]/image().spacing[1] : 1;
 const nextPaint = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 function toast(text,error=false){clearTimeout(toastTimer);$('toast').textContent=text;$('toast').classList.toggle('error',error);$('toast').hidden=false;toastTimer=setTimeout(()=>$('toast').hidden=true,error?11000:4500);}
-function setBusy(busy,text='Leyendo estudio…'){state.loading=busy;$('loading').hidden=!busy;$('loading-text').textContent=text;['open-button','close-study'].forEach(id=>$(id).disabled=busy);document.querySelectorAll('.toolbar button').forEach(b=>b.disabled=busy||!image());}
-function setLoaded(loaded){document.querySelector('.workspace').classList.toggle('has-study',loaded);stage.classList.toggle('loaded',loaded);['viewer','stage-top','stage-bottom','zoom-control','study-info','close-study'].forEach(id=>$(id).hidden=!loaded);['empty-state','study-empty'].forEach(id=>$(id).hidden=loaded);$('adjustment-fields').disabled=!loaded;document.querySelectorAll('.toolbar button').forEach(b=>b.disabled=!loaded);}
+function setBusy(busy,text='Leyendo estudio…'){state.loading=busy;$('loading').hidden=!busy;$('loading-text').textContent=text;document.querySelectorAll('.toolbar button').forEach(b=>b.disabled=busy||!image());}
+function setLoaded(loaded){document.querySelector('.workspace').classList.toggle('has-study',loaded);stage.classList.toggle('loaded',loaded);['viewer','stage-top','stage-bottom','zoom-control','study-info'].forEach(id=>$(id).hidden=!loaded);['empty-state','study-empty'].forEach(id=>$(id).hidden=loaded);$('adjustment-fields').disabled=!loaded;document.querySelectorAll('.toolbar button').forEach(b=>b.disabled=!loaded);}
 function matrix(){const im=image();return new DOMMatrix().translate(viewW/2+state.x,viewH/2+state.y).scale(state.zoom).rotate(state.angle).scale(state.flip?-1:1,aspect()).translate(-im.width/2,-im.height/2);}
 function point(ev){const r=canvas.getBoundingClientRect();return{x:ev.clientX-r.left,y:ev.clientY-r.top};}
 function toImage(p){return new DOMPoint(p.x,p.y).matrixTransform(matrix().inverse());}
@@ -69,7 +69,7 @@ async function importFiles(fileList) {
       if (name === 'DICOMDIR' || name.startsWith('.')) continue;
       if (files.length > 1 && !dicomCandidate(file.webkitRelativePath || name) && !name.toLowerCase().endsWith('.zip') && name.includes('.')) continue;
       if (file.size > 536870912) {
-        errors.push('El archivo supera 512 MB. Abre solo los DICOM que necesites.');
+        errors.push('El archivo del estudio supera el límite de 512 MB.');
         continue;
       }
       let candidates;
@@ -88,7 +88,7 @@ async function importFiles(fileList) {
         }
         try {
           const im = DicomEngine.parse(candidate.bytes);
-          if (totalPixels + im.pixels.length > 40000000) throw new Error('Límite de memoria alcanzado. Cierra el estudio antes de abrir más imágenes.');
+          if (totalPixels + im.pixels.length > 40000000) throw new Error('El estudio supera el límite de memoria del visor.');
           const item = { image: im, measures: [] };
           addCard(item, state.items.length);
           state.items.push(item);
@@ -105,18 +105,15 @@ async function importFiles(fileList) {
       select(firstIndex);
       if (errors.length) toast(`${loaded} imagen${loaded === 1 ? '' : 'es'} abierta${loaded === 1 ? '' : 's'}. ${errors.length} archivo(s) omitido(s): ${[...new Set(errors)].slice(0, 2).join(' ')}`, true);
     } else {
-      toast(errors[0] || 'No se han encontrado imágenes DICOM. Selecciona el ZIP original o la carpeta DICOM del pendrive.', true);
+      toast(errors[0] || 'No se han encontrado imágenes DICOM compatibles en el estudio incluido.', true);
     }
   } catch (error) {
     if (loaded && state.items[firstIndex]) select(firstIndex);
-    toast(error.message || 'No se pudo abrir el archivo.', true);
+    toast(error.message || 'No se pudo procesar el estudio incluido.', true);
   } finally {
     setBusy(false);
-    $('file-input').value = '';
-    $('folder-input').value = '';
   }
 }
-function closeStudy(){if(state.loading)return;state.items=[];state.index=-1;state.measure=null;state.drag=null;state.pointers.clear();state.pinch=null;$('image-list').replaceChildren();sourceCanvas.width=sourceCanvas.height=0;setLoaded(false);$('study-empty').querySelector('p').textContent='Sin estudio abierto';$('study-empty').querySelector('small').textContent='Pulsa «Abrir estudio» para cargar otro archivo.';$('image-count').textContent='0';$('status-text').textContent='Estudio cerrado · Listo para abrir otro';$('measurement-list').replaceChildren();$('toast').hidden=true;resize();}
 function downloadPNG(){if(!image())return;const im=image(),rotated=state.angle%180!==0,out=document.createElement('canvas'),g=out.getContext('2d');const displayedHeight=Math.max(1,Math.round(im.height*aspect()));out.width=rotated?displayedHeight:im.width;out.height=rotated?im.width:displayedHeight;g.translate(out.width/2,out.height/2);g.rotate(state.angle*Math.PI/180);g.scale(state.flip?-1:1,aspect());g.drawImage(sourceCanvas,-im.width/2,-im.height/2);out.toBlob(blob=>{if(!blob)return toast('No se pudo exportar la imagen.',true);const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=`radiografia-${state.index+1}${im.frames>1?`-fotograma-${state.frame+1}`:''}.png`;a.click();setTimeout(()=>URL.revokeObjectURL(u),30000);out.width=out.height=0;toast('PNG exportado con los tonos y la orientación actuales, sin mediciones.');},'image/png');}
 canvas.addEventListener('wheel',ev=>{if(!image())return;ev.preventDefault();zoomAt(Math.exp(-ev.deltaY*.002),point(ev));},{passive:false});
 canvas.addEventListener('pointerdown',ev=>{if(!image()||state.loading)return;canvas.focus();canvas.setPointerCapture(ev.pointerId);const p=point(ev);state.pointers.set(ev.pointerId,p);if(state.pointers.size===2){const [a,b]=[...state.pointers.values()];state.pinch={distance:Math.hypot(a.x-b.x,a.y-b.y),mid:{x:(a.x+b.x)/2,y:(a.y+b.y)/2}};state.drag=null;state.measure=null;draw();return;}if(state.pointers.size>1)return;state.drag={p,x:state.x,y:state.y,center:state.center,width:state.width,mode:ev.button===1||ev.button===2?'pan':state.mode};if(state.drag.mode==='measure'){const q=toImage(p);if(within(q))state.measure={a:clampPoint(q),b:clampPoint(q),frame:state.frame};}ev.preventDefault();});
@@ -124,15 +121,13 @@ canvas.addEventListener('pointermove',ev=>{if(!image()||!state.pointers.has(ev.p
 function pointerEnd(ev){if(state.measure&&ev.type==='pointerup'){if(Math.hypot(state.measure.a.x-state.measure.b.x,state.measure.a.y-state.measure.b.y)*state.zoom>3){active().measures.push(state.measure);toast(measurement(state.measure)+(image().spacing?' · Distancia orientativa según DICOM':' · Sin escala calibrada'));renderMeasurements();}}state.measure=null;state.drag=null;state.pointers.delete(ev.pointerId);state.pinch=null;draw();}
 canvas.addEventListener('pointerup',pointerEnd);canvas.addEventListener('pointercancel',pointerEnd);canvas.addEventListener('contextmenu',ev=>ev.preventDefault());
 document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
-$('open-button').onclick=()=>$('file-input').click();$('file-input').onchange=e=>importFiles(e.target.files);$('folder-input').onchange=e=>importFiles(e.target.files);
-$('close-study').onclick=closeStudy;$('rotate-button').onclick=()=>{state.angle=(state.angle+90)%360;fit();};$('flip-button').onclick=()=>{state.flip=!state.flip;draw();};$('invert-button').onclick=()=>{state.invert=!state.invert;rasterize();};$('reset-button').onclick=resetView;$('original-button').onclick=resetTones;
+$('rotate-button').onclick=()=>{state.angle=(state.angle+90)%360;fit();};$('flip-button').onclick=()=>{state.flip=!state.flip;draw();};$('invert-button').onclick=()=>{state.invert=!state.invert;rasterize();};$('reset-button').onclick=resetView;$('original-button').onclick=resetTones;
 ['fit-button','fit-side'].forEach(id=>$(id).onclick=fit);$('actual-size').onclick=()=>{state.zoom=1;state.x=state.y=0;draw();};$('zoom-in').onclick=()=>zoomAt(1.25);$('zoom-out').onclick=()=>zoomAt(.8);$('full-button').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await stage.requestFullscreen();}catch{toast('Este navegador no admite pantalla completa.');}};
 $('center-range').oninput=()=>{state.center=Number($('center-range').max)+Number($('center-range').min)-Number($('center-range').value);requestRaster();};$('width-range').oninput=()=>{const max=Math.max((image().max-image().min)*3,image().defaultWidth*2,2);state.width=Math.exp((1-Number($('width-range').value)/1000)*Math.log(max));requestRaster();};
 $('auto-button').onclick=()=>{const im=image(),hist=new Uint32Array(4096),span=Math.max(1,im.max-im.min),offset=state.frame*im.width*im.height,count=im.width*im.height;for(let i=0;i<count;i+=3)hist[Math.min(4095,Math.max(0,Math.floor((im.pixels[offset+i]-im.min)/span*4095)))]++;const n=Math.ceil(count/3);let sum=0,lo=0,hi=4095;for(let i=0;i<hist.length;i++){sum+=hist[i];if(sum<n*.01)lo=i;if(sum<n*.99)hi=i;}state.width=Math.max(1,(hi-lo)/4095*span);state.center=im.min+(lo+hi)/8190*span;rasterize();};
 $('frame-range').oninput=()=>{state.frame=Number($('frame-range').value)-1;state.measure=null;$('frame-value').textContent=`${state.frame+1} / ${image().frames}`;rasterize();renderMeasurements();};$('clear-measures').onclick=()=>{if(!active())return;active().measures=active().measures.filter(m=>m.frame!==state.frame);renderMeasurements();draw();};$('export-button').onclick=downloadPNG;
 $('help-button').onclick=()=>$('help-dialog').showModal();$('help-close').onclick=()=>$('help-dialog').close();$('help-dialog').addEventListener('click',e=>{if(e.target===$('help-dialog')){const r=e.target.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)e.target.close();}});
 window.addEventListener('keydown',ev=>{if($('help-dialog').open||/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)||ev.ctrlKey||ev.metaKey||ev.altKey)return;if(ev.key==='Escape'){state.measure=null;state.drag=null;draw();return;}if(!image())return;const key=ev.key.toLowerCase();if(key==='m')setMode('pan');else if(key==='b')setMode('window');else if(key==='d')setMode('measure');else if(key==='i')$('invert-button').click();else if(key==='r')$('rotate-button').click();else if(key==='0')resetView();else if(key==='+'||key==='=')zoomAt(1.25);else if(key==='-')zoomAt(.8);else return;ev.preventDefault();});
-window.addEventListener('dragenter',ev=>{if(!ev.dataTransfer?.types.includes('Files'))return;ev.preventDefault();dragDepth++;$('drag-overlay').hidden=false;});window.addEventListener('dragover',ev=>{if(ev.dataTransfer?.types.includes('Files')){ev.preventDefault();ev.dataTransfer.dropEffect='copy';}});window.addEventListener('dragleave',ev=>{if(!ev.dataTransfer?.types.includes('Files'))return;if(--dragDepth<=0){dragDepth=0;$('drag-overlay').hidden=true;}});window.addEventListener('drop',ev=>{ev.preventDefault();dragDepth=0;$('drag-overlay').hidden=true;if(ev.dataTransfer?.files.length)importFiles(ev.dataTransfer.files);});
 new ResizeObserver(resize).observe(stage);setLoaded(false);
 if(location.protocol!=='file:'&&typeof loadRepositoryStudy==='function'){
   setBusy(true,'Conectando con el estudio público…');
@@ -140,13 +135,13 @@ if(location.protocol!=='file:'&&typeof loadRepositoryStudy==='function'){
     if(file){setBusy(false);importFiles([file]);return;}
     setBusy(false);
     $('empty-state').querySelector('strong').textContent='Estudio no disponible';
-    $('empty-state').querySelector('small').textContent='Pulsa «Abrir estudio» para elegir un archivo.';
+    $('empty-state').querySelector('small').textContent='Recarga la página para volver a intentarlo.';
     $('study-empty').querySelector('p').textContent='Estudio no disponible';
-    $('study-empty').querySelector('small').textContent='Puedes abrir otro archivo desde el botón superior.';
+    $('study-empty').querySelector('small').textContent='Recarga la página para volver a intentarlo.';
   }).catch(error=>{
     setBusy(false);
     $('empty-state').querySelector('strong').textContent='No se pudo cargar el estudio';
-    $('empty-state').querySelector('small').textContent='Comprueba tu conexión o pulsa «Abrir estudio».';
+    $('empty-state').querySelector('small').textContent='Comprueba tu conexión y recarga la página.';
     $('study-empty').querySelector('p').textContent='No se pudo cargar';
     $('study-empty').querySelector('small').textContent='Comprueba tu conexión.';
     toast(error.message||'No se pudo descargar el estudio público.',true);

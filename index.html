@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Abre tus radiografías DICOM desde un archivo o ZIP, con zoom, ajustes de imagen y mediciones. Tus imágenes se procesan en este dispositivo.">
+  <meta name="description" content="Visor de radiografías DICOM con zoom, ajustes de imagen y mediciones. El estudio incluido se carga automáticamente y se procesa en este dispositivo.">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="theme-color" content="#101617">
   <title>VisorX · Visor de radiografías</title>
@@ -16,14 +16,11 @@
   <script defer src="app.js"></script>
 </head>
 <body>
-<input id="file-input" type="file" accept=".zip,.dcm,.dicom,application/dicom" multiple hidden>
-<input id="folder-input" type="file" webkitdirectory multiple hidden>
 <header class="topbar">
   <a class="brand" href="./" aria-label="VisorX, inicio"><span class="brand-mark">✳</span><span>VisorX</span></a>
   <div class="header-divider"></div><span class="app-name">Visor de radiografías</span>
   <span class="local-pill"><span class="live-dot"></span> Procesada en tu dispositivo</span>
   <button class="button subtle" id="help-button"><span data-icon="help"></span><span class="optional">Ayuda</span></button>
-  <button class="button primary" id="open-button"><span data-icon="folder"></span>Abrir estudio</button>
 </header>
 <main class="workspace">
   <aside class="sidebar">
@@ -32,7 +29,6 @@
     <div id="image-list" class="image-list" aria-label="Imágenes del estudio"></div>
     <div class="study-info" id="study-info" hidden><div class="eyebrow">IMAGEN SELECCIONADA</div><dl><dt>Resolución</dt><dd id="meta-size">—</dd><dt>Profundidad</dt><dd id="meta-bits">—</dd><dt>Modalidad</dt><dd id="meta-modality">—</dd><dt>Escala</dt><dd id="meta-spacing">—</dd></dl></div>
     <div class="sidebar-bottom"><span data-icon="shield"></span><p><strong>Archivo guardado públicamente</strong><br>La copia de GitHub es pública. El visor la descarga y procesa en este dispositivo.</p></div>
-    <button id="close-study" class="button subtle close-study" hidden><span data-icon="close"></span>Cerrar estudio</button>
   </aside>
   <section class="viewer-column" aria-label="Visor de imágenes">
     <nav class="toolbar" aria-label="Herramientas de imagen">
@@ -53,13 +49,12 @@
     <div class="stage" id="stage">
       <canvas id="viewer" aria-label="Radiografía; usa la rueda para ampliar y arrastra para mover" tabindex="0" hidden></canvas>
       <div class="stage-top" id="stage-top" hidden><div><span class="eyebrow" id="stage-image-label">RADIOGRAFÍA</span><p id="stage-image-size"></p></div><span class="original-badge" id="transform-badge">ORIGINAL</span></div>
-      <div class="empty-state" id="empty-state"><span data-icon="scan"></span><strong>Sin estudio abierto</strong><small>Pulsa «Abrir estudio» para cargar otro archivo.</small></div>
-      <div id="drag-overlay" class="drag-overlay" hidden><span data-icon="folder"></span><h2>Suelta tu estudio aquí</h2><p>Archivos DICOM y ZIP</p></div>
+      <div class="empty-state" id="empty-state"><span data-icon="scan"></span><strong>Preparando estudio</strong><small>El estudio se carga automáticamente al abrir la página.</small></div>
       <div id="loading" class="loading" role="status" aria-live="polite" aria-atomic="true"><span class="spinner"></span><strong id="loading-text">Conectando con el estudio…</strong><small>Descargando y preparando la radiografía en este dispositivo.</small></div>
       <div class="stage-bottom" id="stage-bottom" hidden><span id="interaction-hint">Arrastra para mover · Rueda para ampliar</span><span id="window-badge"></span></div>
       <div class="zoom-control" id="zoom-control" hidden><button id="zoom-out" aria-label="Reducir zoom">−</button><button id="fit-button" title="Encajar en pantalla" aria-label="Encajar en pantalla"><span id="zoom-value">100 %</span></button><button id="zoom-in" aria-label="Aumentar zoom">+</button><span></span><button id="full-button" title="Pantalla completa" aria-label="Pantalla completa"><span data-icon="expand"></span></button></div>
     </div>
-    <div class="viewer-footer"><span><span class="live-dot"></span><span id="status-text">Listo para abrir un estudio</span></span><span>Archivo público · Sin validación para diagnóstico</span></div>
+    <div class="viewer-footer"><span><span class="live-dot"></span><span id="status-text">Cargando estudio automáticamente…</span></span><span>Archivo público · Sin validación para diagnóstico</span></div>
   </section>
   <aside class="adjustments" aria-label="Ajustes de imagen">
     <div class="panel-heading">AJUSTES DE IMAGEN<span data-icon="sliders"></span></div>
@@ -79,6 +74,6 @@
   </aside>
 </main>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
-<dialog id="help-dialog"><div class="dialog-top"><span class="eyebrow">GUÍA RÁPIDA</span><button class="tool icon-only" id="help-close" aria-label="Cerrar ayuda"><span data-icon="close"></span></button></div><h2>Tu radiografía, sin instalaciones.</h2><p>Selecciona <strong>Abrir estudio</strong> y elige el ZIP del pendrive, un archivo DICOM o una carpeta completa. No necesitas ejecutar el programa de Windows.</p><div class="help-grid"><p><kbd>M</kbd><strong>Mover</strong>Arrastra la imagen; usa la rueda o dos dedos para ampliar.</p><p><kbd>B</kbd><strong>Ajustar</strong>Arrastra en horizontal para el contraste y en vertical para el brillo.</p><p><kbd>D</kbd><strong>Medir</strong>Arrastra entre dos puntos. La escala procede del DICOM; sin escala se muestran píxeles.</p><p><kbd>I</kbd><strong>Invertir</strong>Invierte los tonos. <kbd>R</kbd> gira la imagen y <kbd>0</kbd> restablece la vista.</p></div><p class="small-note">Compatible con DICOM monocromo sin compresión de 8 y 16 bits. Los formatos no compatibles muestran un aviso. El PNG exporta los tonos y la orientación actuales, sin las mediciones. No elimina texto que ya forme parte de la imagen.</p><div class="privacy-note"><span data-icon="shield"></span><p>Los archivos se procesan en memoria y se liberan al cerrar el estudio o la página. Las imágenes y sus datos no se guardan en esta web.</p></div></dialog>
+<dialog id="help-dialog"><div class="dialog-top"><span class="eyebrow">GUÍA RÁPIDA</span><button class="tool icon-only" id="help-close" aria-label="Cerrar ayuda"><span data-icon="close"></span></button></div><h2>Controles del visor</h2><p>El estudio incluido se carga automáticamente al abrir la página y se procesa en este dispositivo.</p><div class="help-grid"><p><kbd>M</kbd><strong>Mover</strong>Arrastra la imagen; usa la rueda o dos dedos para ampliar.</p><p><kbd>B</kbd><strong>Ajustar</strong>Arrastra en horizontal para el contraste y en vertical para el brillo.</p><p><kbd>D</kbd><strong>Medir</strong>Arrastra entre dos puntos. La escala procede del DICOM; sin escala se muestran píxeles.</p><p><kbd>I</kbd><strong>Invertir</strong>Invierte los tonos. <kbd>R</kbd> gira la imagen y <kbd>0</kbd> restablece la vista.</p></div><p class="small-note">Compatible con DICOM monocromo sin compresión de 8 y 16 bits. Los formatos no compatibles muestran un aviso. El PNG exporta los tonos y la orientación actuales, sin las mediciones. No elimina texto que ya forme parte de la imagen.</p><div class="privacy-note"><span data-icon="shield"></span><p>Las imágenes y sus datos se procesan en memoria en este dispositivo.</p></div></dialog>
 </body>
 </html>
